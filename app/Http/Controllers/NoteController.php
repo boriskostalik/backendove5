@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use App\Models\Note;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -13,20 +13,16 @@ class NoteController extends Controller
      */
     public function index()
     {
-        $notes = DB::table('notes')
-            ->orderBy('updated_at', 'desc')
-            ->get();
+        $notes = Note::orderBy('updated_at', 'desc')->get();
         return response()->json($notes);
     }
 
     public function store(Request $request)
     {
-        $note = DB::table('notes')->insert([
+        $note = Note::create([
             'user_id' => $request->user_id,
             'title' => $request->title,
-            'body' => $request->body,
-            'created_at' => now(),
-            'updated_at' => now(),
+            'body' => $request->body
         ]);
 
         if ($note) {
@@ -42,7 +38,7 @@ class NoteController extends Controller
      */
     public function show($id)
     {
-        $note = DB::table('notes')->where('id', $id)->first();
+        $note = Note::find($id);
 
         if (!$note) {
             return response()->json(['message' => 'Poznámka nebola nájdená'], Response::HTTP_NOT_FOUND);
@@ -56,17 +52,18 @@ class NoteController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $updated = DB::table('notes')->where('id', $id)->update([
+        $note = Note::find($id);
+
+        if (!$note) {
+            return response()->json(['message' => 'Poznámka nebola nájdená'], Response::HTTP_NOT_FOUND);
+        }
+
+        $note->update([
             'title' => $request->title,
-            'body' => $request->body,
-            'updated_at' => now(),
+            'body' => $request->body
         ]);
 
-        if ($updated) {
-            return response()->json(['message' => 'Poznámka bola aktualizovaná'], Response::HTTP_OK);
-        } else {
-            return response()->json(['message' => 'Nič sa nezmenilo'], Response::HTTP_OK);
-        }
+        return response()->json(['message' => 'Poznámka bola aktualizovaná', 'note' => $note]);
     }
 
     /**
@@ -74,13 +71,14 @@ class NoteController extends Controller
      */
     public function destroy($id)
     {
-        $deleted = DB::table('notes')->where('id', $id)->delete();
+        $note = Note::find($id);
 
-        if ($deleted) {
-            return response()->json(['message' => 'Poznámka bola vymazaná'], Response::HTTP_OK);
-        } else {
+        if (!$note) {
             return response()->json(['message' => 'Poznámka nebola nájdená'], Response::HTTP_NOT_FOUND);
         }
+
+        $note->delete();
+        return response()->json(['message' => 'Poznámka bola vymazaná']);
     }
     /**
      * Vlastné metódy
@@ -124,10 +122,7 @@ class NoteController extends Controller
             return response()->json(['message' => 'Musíte zadať dopyt na vyhľadávanie'], Response::HTTP_BAD_REQUEST);
         }
 
-        $notes = DB::table('notes')
-            ->where('title', 'like', '%' . $query . '%')
-            ->orWhere('body', 'like', '%' . $query . '%')
-            ->get();
+        $notes = Note::searchByTitleOrBody($query); 
 
         if ($notes->isEmpty()) {
             return response()->json(['message' => 'Žiadne poznámky sa nenašli'], Response::HTTP_NOT_FOUND);
